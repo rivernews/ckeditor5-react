@@ -58,8 +58,8 @@
     "npm": ">=5.7.1"
   },
   "scripts": {
-    "build": "webpack --mode production",
-    "develop": "webpack --mode development --watch",
+    "build": "$(npm bin)/webpack --mode production",
+    "develop": "$(npm bin)/webpack --mode development --watch",
     "changelog": "node ./scripts/changelog.js",
     "release:bump-version": "node ./scripts/bump-version.js",
     "release:publish": "node ./scripts/publish.js",
