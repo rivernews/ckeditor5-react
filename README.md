@@ -8,6 +8,11 @@ What did we add on top of the original Ckeidtor?
 - Expose the `keydown` event, so you can setup more keyboard shortcut based on your needs
 - Not so much currently, but we're constantly reviewing our use case and will add more...!
 
+## How to update code and release to npm
+
+1. Commit code in git, give commit message.
+1. Run `npm run patch-publish`.
+
 ## Relevant repository
 
 - Our custom [Ckeditor balloon build](https://github.com/rivernews/ckeditor5-build-balloon). This Ckeditor React repository serves like an adapter between vanilla Ckeditor and the React framework, that means you can switch the vanilla Ckeditor5 part with any other variant you want - say it's the offical or somebody else custom build like me.

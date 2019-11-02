@@ -58,6 +58,7 @@
     "npm": ">=5.7.1"
   },
   "scripts": {
+    "patch-publish": "npm version patch && npm publish && git push",
     "build": "$(npm bin)/webpack --mode production",
     "develop": "$(npm bin)/webpack --mode development --watch",
     "changelog": "node ./scripts/changelog.js",
