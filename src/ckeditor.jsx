@@ -89,6 +89,13 @@ export default class CKEditor extends React.Component {
 					if ( this.props.onBlur ) {
 						this.props.onBlur( event, editor );
 					}
+                } );
+                
+                viewDocument.on( 'keydown', event => {
+					/* istanbul ignore else */
+					if ( this.props.onKeydown ) {
+						this.props.onKeydown( event, editor );
+					}
 				} );
 			} )
 			.catch( error => {
@@ -132,6 +139,7 @@ CKEditor.propTypes = {
 	onInit: PropTypes.func,
 	onFocus: PropTypes.func,
 	onBlur: PropTypes.func,
+	onKeydown: PropTypes.func,
 	disabled: PropTypes.bool
 };
 
