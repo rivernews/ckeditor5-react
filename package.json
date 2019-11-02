@@ -2,7 +2,7 @@
   "name": "@shaungc/custom-ckeditor5-react",
   "version": "2.0.1",
   "main": "dist/ckeditor.js",
-  "description": "Official React component for CKEditor 5 – the best browser-based rich text editor.",
+  "description": "A custom build of Ckeditor5 React aimed for UX optimization",
   "keywords": [
     "wysiwyg",
     "rich text",
