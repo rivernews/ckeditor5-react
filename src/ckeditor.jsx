@@ -91,13 +91,12 @@ export default class CKEditor extends React.Component {
 					}
                 } );
                 
-                /** keydown event: https://ckeditor.com/docs/ckeditor5/latest/api/module_engine_view_document-Document.html#event-event:keydown */
-                // viewDocument.on( 'keydown', (eventInfo, keyEventData) => {
-				// 	/* istanbul ignore else */
-				// 	if ( this.props.onKeydown ) {
-				// 		this.props.onKeydown( eventInfo, keyEventData, editor );
-				// 	}
-                // } );
+                /** keydown event: https://ckeditor.com/docs/ckeditor5/latest/api/module_engine_view_document-Document.html#event-event:keydown 
+                 * 
+                 * CKEditor only expose a numeric keyCode for key-matching, but this attribute is deprecated: https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode
+                 * 
+                 * As such, we are using CKEditor's keystroke handler here, at least to abstract away from the low level, hopefully it will be changed in future CKEditor version.
+                */
                 editor.keystrokes.set('Ctrl+S', (data, stop) => {
                     if (this.props.onSaveKeystroke) {
                         this.props.onSaveKeystroke();

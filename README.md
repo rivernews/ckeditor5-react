@@ -5,7 +5,7 @@
 The motivation to fork and create our own Ckeditor build is a better user experience. The needs are tailored to our own use case so I have no plan to create PR at least in the short term, but the UX principles behind these add-ons and improvement in this repo are universe. (see [the heuristics introduced by Nielsen](https://en.wikipedia.org/wiki/Heuristic_evaluation))  
 
 What did we add on top of the original Ckeidtor?
-- Expose the `keydown` event, so you can setup more keyboard shortcut based on your needs
+- Expose a `onSaveKeystroke` event as prop on the `<CKEditor>` component, so you can setup some mechanism when user press "Ctrl + S" in the editor area. Usually this will be triggering a form submission.
 - Not so much currently, but we're constantly reviewing our use case and will add more...!
 
 ## How to update code and release to npm
