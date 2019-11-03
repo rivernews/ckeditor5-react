@@ -92,12 +92,18 @@ export default class CKEditor extends React.Component {
                 } );
                 
                 /** keydown event: https://ckeditor.com/docs/ckeditor5/latest/api/module_engine_view_document-Document.html#event-event:keydown */
-                viewDocument.on( 'keydown', (eventInfo, keyEventData) => {
-					/* istanbul ignore else */
-					if ( this.props.onKeydown ) {
-						this.props.onKeydown( eventInfo, keyEventData, editor );
-					}
-				} );
+                // viewDocument.on( 'keydown', (eventInfo, keyEventData) => {
+				// 	/* istanbul ignore else */
+				// 	if ( this.props.onKeydown ) {
+				// 		this.props.onKeydown( eventInfo, keyEventData, editor );
+				// 	}
+                // } );
+                editor.keystrokes.set('Ctrl+S', (data, stop) => {
+                    if (this.props.onSaveKeystroke) {
+                        this.props.onSaveKeystroke();
+                        stop();
+                    }
+                })
 			} )
 			.catch( error => {
 				console.error( error );
@@ -140,7 +146,7 @@ CKEditor.propTypes = {
 	onInit: PropTypes.func,
 	onFocus: PropTypes.func,
 	onBlur: PropTypes.func,
-	onKeydown: PropTypes.func,
+	onSaveKeystroke: PropTypes.func,
 	disabled: PropTypes.bool
 };
 
