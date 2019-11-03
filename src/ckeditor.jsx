@@ -91,10 +91,11 @@ export default class CKEditor extends React.Component {
 					}
                 } );
                 
-                viewDocument.on( 'keydown', event => {
+                /** keydown event: https://ckeditor.com/docs/ckeditor5/latest/api/module_engine_view_document-Document.html#event-event:keydown */
+                viewDocument.on( 'keydown', (eventInfo, keyEventData) => {
 					/* istanbul ignore else */
 					if ( this.props.onKeydown ) {
-						this.props.onKeydown( event, editor );
+						this.props.onKeydown( eventInfo, keyEventData, editor );
 					}
 				} );
 			} )
