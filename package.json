@@ -1,6 +1,6 @@
 {
   "name": "@shaungc/custom-ckeditor5-react",
-  "version": "2.0.8",
+  "version": "2.0.9",
   "main": "dist/ckeditor.js",
   "description": "A custom build of Ckeditor5 React aimed for UX optimization",
   "keywords": [
