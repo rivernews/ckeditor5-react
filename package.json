@@ -25,7 +25,7 @@
     "@ckeditor/ckeditor5-build-classic": "^12.0.0",
     "@ckeditor/ckeditor5-dev-env": "^15.0.0",
     "@ckeditor/ckeditor5-dev-utils": "^11.0.1",
-    "@shaungc/ckeditor5-custom-balloon": "^2.1.12",
+    "@shaungc/ckeditor5-custom-balloon": "^2.1.13",
     "babel-loader": "^8.0.5",
     "chai": "^4.1.2",
     "enzyme": "^3.3.0",
@@ -60,6 +60,7 @@
   },
   "scripts": {
     "patch-publish": "npm version patch && npm publish && git push",
+    "minor-publish": "npm version minor && npm publish && git push",
     "build": "$(npm bin)/webpack --mode production",
     "develop": "$(npm bin)/webpack --mode development --watch",
     "changelog": "node ./scripts/changelog.js",
