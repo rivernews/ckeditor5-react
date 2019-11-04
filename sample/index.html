@@ -21,7 +21,7 @@
 <div id="root"></div>
 <script src="../node_modules/react/umd/react.production.min.js"></script>
 <script src="../node_modules/react-dom/umd/react-dom.production.min.js"></script>
-<script src="../node_modules/@ckeditor/ckeditor5-build-classic/build/ckeditor.js"></script>
+<script src="../node_modules/@shaungc/ckeditor5-custom-balloon/build/ckeditor.js"></script>
 <script src="../dist/ckeditor.js"></script>
 <script>
 	document.addEventListener( 'DOMContentLoaded', () => {
@@ -36,7 +36,7 @@
 
 		ReactDOM.render(
 			React.createElement( CKEditor, {
-				editor: ClassicEditor,
+				editor: BalloonEditor,
 				data: editorContent,
 				onInit: editor => {
 					window.editor = editor;
