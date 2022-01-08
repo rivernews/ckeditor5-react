@@ -1,5 +1,5 @@
 /**
- * @license Copyright (c) 2003-2019, CKSource - Frederico Knabben. All rights reserved.
+ * @license Copyright (c) 2003-2022, CKSource - Frederico Knabben. All rights reserved.
  * For licensing, see LICENSE.md.
  */
 
@@ -70,11 +70,11 @@ module.exports = function getKarmaConfig() {
 		customLaunchers: {
 			CHROME_TRAVIS_CI: {
 				base: 'Chrome',
-				flags: [ '--no-sandbox', '--disable-background-timer-throttling' ]
+				flags: [ '--disable-background-timer-throttling', '--js-flags="--expose-gc"' ]
 			},
 			CHROME_LOCAL: {
 				base: 'Chrome',
-				flags: [ '--disable-background-timer-throttling' ]
+				flags: [ '--disable-background-timer-throttling', '--js-flags="--expose-gc"' ]
 			}
 		},
 
@@ -123,7 +123,10 @@ module.exports = function getKarmaConfig() {
 		webpackConfig.module.rules.push( {
 			test: /\.jsx?$/,
 			loader: 'istanbul-instrumenter-loader',
-			include: /src/,
+			include: [
+				/src/,
+				/_utils-tests/
+			],
 			exclude: [
 				/node_modules/
 			],
@@ -192,7 +195,7 @@ function parseArguments( args ) {
 			c: 'coverage',
 			r: 'reporter',
 			s: 'source-map',
-			w: 'watch',
+			w: 'watch'
 		},
 
 		default: {
@@ -200,7 +203,7 @@ function parseArguments( args ) {
 			reporter: 'mocha',
 			watch: false,
 			coverage: false,
-			'source-map': false,
+			'source-map': false
 		}
 	};
 

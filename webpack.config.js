@@ -1,5 +1,5 @@
 /**
- * @license Copyright (c) 2003-2019, CKSource - Frederico Knabben. All rights reserved.
+ * @license Copyright (c) 2003-2022, CKSource - Frederico Knabben. All rights reserved.
  * For licensing, see LICENSE.md.
  */
 
@@ -10,7 +10,7 @@
 const path = require( 'path' );
 const webpack = require( 'webpack' );
 const { bundler } = require( '@ckeditor/ckeditor5-dev-utils' );
-const UglifyJsWebpackPlugin = require( 'uglifyjs-webpack-plugin' );
+const TerserPlugin = require( 'terser-webpack-plugin' );
 
 module.exports = {
 	context: __dirname,
@@ -26,28 +26,27 @@ module.exports = {
 		}
 	},
 
-	entry: path.join( __dirname, 'src', 'ckeditor.jsx' ),
+	entry: path.join( __dirname, 'src', 'index.js' ),
 
 	output: {
 		library: 'CKEditor',
 
 		path: path.join( __dirname, 'dist' ),
 		filename: 'ckeditor.js',
-		libraryTarget: 'umd',
-		libraryExport: 'default',
-
+		libraryTarget: 'umd'
 	},
 
 	optimization: {
 		minimizer: [
-			new UglifyJsWebpackPlugin( {
+			new TerserPlugin( {
 				sourceMap: true,
-				uglifyOptions: {
+				terserOptions: {
 					output: {
 						// Preserve CKEditor 5 license comments.
 						comments: /^!/
 					}
-				}
+				},
+				extractComments: false
 			} )
 		]
 	},
@@ -56,7 +55,7 @@ module.exports = {
 		new webpack.BannerPlugin( {
 			banner: bundler.getLicenseBanner(),
 			raw: true
-		} ),
+		} )
 	],
 
 	module: {
@@ -65,11 +64,11 @@ module.exports = {
 				test: /\.jsx$/,
 				loader: 'babel-loader',
 				exclude: /node_modules/,
-				query: {
+				options: {
 					compact: false,
 					presets: [ '@babel/preset-react' ]
 				}
 			}
 		]
-	},
+	}
 };
