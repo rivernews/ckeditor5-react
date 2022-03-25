@@ -1,21 +1,24 @@
 /**
- * @license Copyright (c) 2003-2019, CKSource - Frederico Knabben. All rights reserved.
+ * @license Copyright (c) 2003-2022, CKSource - Frederico Knabben. All rights reserved.
  * For licensing, see LICENSE.md.
  */
 
+/* global document, ClassicEditor */
+/* eslint-disable react/no-render-return-value */
+
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { configure, mount } from 'enzyme';
+import { configure } from 'enzyme';
 import Adapter from 'enzyme-adapter-react-16';
 
-import CKEditor from '../src/ckeditor.jsx';
+import CKEditor from '../../src/ckeditor.jsx';
 
 configure( { adapter: new Adapter() } );
 
-const Editor = ( props ) => {
+const Editor = props => {
 	return (
 		<CKEditor editor={ ClassicEditor } { ...props } />
-	)
+	);
 };
 
 class AppUsingState extends React.Component {
@@ -33,27 +36,43 @@ class AppUsingState extends React.Component {
 		return (
 			<Editor
 				data={ this.state.content }
-				onChange={ (evt, editor) => this.setState( { content: editor.getData() } ) }
-				onInit={ _editor => this.editor = _editor }
+				onChange={ ( evt, editor ) => this.setState( { content: editor.getData() } ) }
+				onReady={ editor => {
+					this.editor = editor;
+					this.props.onReady();
+				} }
 			/>
-		)
+		);
 	}
 }
 
-class AppUsingStaticString extends AppUsingState {
+class AppUsingStaticString extends React.Component {
+	constructor( props ) {
+		super( props );
+
+		this.state = {
+			content: ''
+		};
+
+		this.editor = null;
+	}
+
 	render() {
 		return (
 			<Editor
 				data={ '<p>Initial data.</p>' }
-				onChange={ (evt, editor) => this.setState( { content: editor.getData() } ) }
-				onInit={ _editor => this.editor = _editor }
+				onChange={ ( evt, editor ) => this.setState( { content: editor.getData() } ) }
+				onReady={ editor => {
+					this.editor = editor;
+					this.props.onReady();
+				} }
 			/>
-		)
+		);
 	}
 }
 
 describe( 'CKEditor Component - integration', () => {
-	describe('update the editor\'s content', () => {
+	describe( 'update the editor\'s content', () => {
 		// Common usage of the component - a component's state is passed to the <CKEditor> component.
 		describe( '#data is connected with the state', () => {
 			let div, component;
@@ -63,9 +82,7 @@ describe( 'CKEditor Component - integration', () => {
 				document.body.appendChild( div );
 
 				return new Promise( resolve => {
-					component = ReactDOM.render( <AppUsingState />, div );
-
-					setTimeout( resolve );
+					component = ReactDOM.render( <AppUsingState onReady={ resolve } />, div );
 				} );
 			} );
 
@@ -111,9 +128,7 @@ describe( 'CKEditor Component - integration', () => {
 				document.body.appendChild( div );
 
 				return new Promise( resolve => {
-					component = ReactDOM.render( <AppUsingStaticString />, div );
-
-					setTimeout( resolve );
+					component = ReactDOM.render( <AppUsingStaticString onReady={ resolve } />, div );
 				} );
 			} );
 

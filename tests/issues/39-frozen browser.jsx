@@ -1,21 +1,23 @@
 /**
- * @license Copyright (c) 2003-2019, CKSource - Frederico Knabben. All rights reserved.
+ * @license Copyright (c) 2003-2022, CKSource - Frederico Knabben. All rights reserved.
  * For licensing, see LICENSE.md.
  */
 
+/* global document, ClassicEditor */
+
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { configure, mount } from 'enzyme';
+import { configure } from 'enzyme';
 import Adapter from 'enzyme-adapter-react-16';
 
 import CKEditor from '../../src/ckeditor.jsx';
 
 configure( { adapter: new Adapter() } );
 
-const Editor = ( props ) => {
+const Editor = props => {
 	return (
 		<CKEditor editor={ ClassicEditor } { ...props } />
-	)
+	);
 };
 
 class App extends React.Component {
@@ -32,14 +34,17 @@ class App extends React.Component {
 	render() {
 		return (
 			<Editor
-				onChange={ (evt, editor) => this.setState( { content: editor.getData() } ) }
-				onInit={ _editor => this.editor = _editor }
+				onChange={ ( evt, editor ) => this.setState( { content: editor.getData() } ) }
+				onReady={ editor => {
+					this.editor = editor;
+					this.props.onReady();
+				} }
 			/>
-		)
+		);
 	}
 }
 
-describe( '#37 - bug: a browser is being froze', () => {
+describe( 'issue #37: the browser is being frozen', () => {
 	let div, component;
 
 	beforeEach( () => {
@@ -47,9 +52,7 @@ describe( '#37 - bug: a browser is being froze', () => {
 		document.body.appendChild( div );
 
 		return new Promise( resolve => {
-			component = ReactDOM.render( <App />, div );
-
-			setTimeout( resolve );
+			component = ReactDOM.render( <App onReady={ resolve } />, div ); // eslint-disable-line react/no-render-return-value
 		} );
 	} );
 
@@ -57,7 +60,7 @@ describe( '#37 - bug: a browser is being froze', () => {
 		div.remove();
 	} );
 
-	it( 'if "data" property is not specified, a browser should not be freeze', () => {
+	it( 'if the "#data" property is not specified, the browser should not freeze', () => {
 		const editor = component.editor;
 
 		editor.model.change( writer => {

@@ -1,28 +1,30 @@
 /**
- * @license Copyright (c) 2003-2019, CKSource - Frederico Knabben. All rights reserved.
+ * @license Copyright (c) 2003-2022, CKSource - Frederico Knabben. All rights reserved.
  * For licensing, see LICENSE.md.
  */
+
+/* global HTMLDivElement */
 
 import React from 'react';
 import { configure, mount } from 'enzyme';
 import Adapter from 'enzyme-adapter-react-16';
-import Editor from  './_utils/editor';
+import Editor from './_utils/editor';
 import CKEditor from '../src/ckeditor.jsx';
+import CKEditorError from '@ckeditor/ckeditor5-utils/src/ckeditorerror';
+import turnOffDefaultErrorCatching from './_utils/turnoffdefaulterrorcatching';
 
 configure( { adapter: new Adapter() } );
 
-describe( 'CKEditor Component', () => {
-	let sandbox, wrapper;
+describe( '<CKEditor> Component', () => {
+	let wrapper;
 
 	beforeEach( () => {
-		sandbox = sinon.createSandbox();
-
-		sandbox.stub( Editor._model.document, 'on' );
-		sandbox.stub( Editor._editing.view.document, 'on' );
+		sinon.stub( Editor._model.document, 'on' );
+		sinon.stub( Editor._editing.view.document, 'on' );
 	} );
 
 	afterEach( () => {
-		sandbox.restore();
+		sinon.restore();
 
 		if ( wrapper ) {
 			wrapper.unmount();
@@ -30,95 +32,179 @@ describe( 'CKEditor Component', () => {
 	} );
 
 	describe( 'initialization', () => {
-		it( 'calls "Editor#create()" with default configuration if not specified', () => {
-			sandbox.stub( Editor, 'create' ).resolves( new Editor() );
+		it( 'calls "Editor#create()" with default configuration if not specified', async () => {
+			sinon.stub( Editor, 'create' ).resolves( new Editor() );
 
-			wrapper = mount( <CKEditor editor={ Editor } /> );
+			await new Promise( res => {
+				wrapper = mount( <CKEditor editor={ Editor } onReady={ res } /> );
+			} );
 
 			expect( Editor.create.calledOnce ).to.be.true;
 			expect( Editor.create.firstCall.args[ 0 ] ).to.be.an.instanceof( HTMLDivElement );
-			expect( Editor.create.firstCall.args[ 1 ] ).to.deep.equal( {} );
+			expect( Editor.create.firstCall.args[ 1 ] ).to.have.property( 'initialData', '' );
 		} );
 
-		it( 'passes configuration object directly to the "Editor#create()" method', () => {
-			sandbox.stub( Editor, 'create' ).resolves( new Editor() );
+		it( 'passes configuration object directly to the "Editor#create()" method', async () => {
+			sinon.stub( Editor, 'create' ).resolves( new Editor() );
+
+			function myPlugin() { }
 
 			const editorConfig = {
 				plugins: [
-					function myPlugin() {}
+					myPlugin
 				],
 				toolbar: {
 					items: [ 'bold' ]
 				}
 			};
 
-			wrapper = mount( <CKEditor editor={ Editor } config={ editorConfig } /> );
+			await new Promise( res => {
+				wrapper = mount( <CKEditor editor={ Editor } config={ editorConfig } onReady={ res } /> );
+			} );
 
 			expect( Editor.create.calledOnce ).to.be.true;
-			expect( Editor.create.firstCall.args[ 1 ] ).to.deep.equal( editorConfig );
-		} );
-
-		it( 'sets initial data if was specified', done => {
-			sandbox.stub( Editor, 'create' ).resolves( new Editor() );
-
-			wrapper = mount( <CKEditor editor={ Editor } data="<p>Hello CKEditor 5!</p>" /> );
-
-			setTimeout( () => {
-				const component = wrapper.instance();
-
-				expect( component.domContainer.current.innerHTML ).to.equal( '<p>Hello CKEditor 5!</p>' );
-
-				done();
+			expect( Editor.create.firstCall.args[ 1 ] ).to.deep.equal( {
+				plugins: [
+					myPlugin
+				],
+				toolbar: {
+					items: [ 'bold' ]
+				},
+				initialData: '',
+				context: undefined
 			} );
 		} );
 
-		it( 'when setting initial data, it must not use "Editor.setData()"', done => {
+		it( 'sets initial data if was specified (using the "data" property)', async () => {
+			sinon.stub( Editor, 'create' ).resolves( new Editor() );
+
+			await new Promise( res => {
+				wrapper = mount( <CKEditor editor={ Editor } data="<p>Hello CKEditor 5!</p>" onReady={ res } /> );
+			} );
+
+			expect( Editor.create.firstCall.args[ 1 ].initialData ).to.equal(
+				'<p>Hello CKEditor 5!</p>'
+			);
+		} );
+
+		it( 'sets initial data if was specified (using the "config" property with the `initialData` key)', async () => {
+			sinon.stub( Editor, 'create' ).resolves( new Editor() );
+
+			await new Promise( res => {
+				wrapper = mount( <CKEditor editor={ Editor } config={ { initialData: '<p>Hello CKEditor 5!</p>' } } onReady={ res } /> );
+			} );
+
+			expect( Editor.create.firstCall.args[ 1 ].initialData ).to.equal(
+				'<p>Hello CKEditor 5!</p>'
+			);
+		} );
+
+		it( 'shows a warning if used "data" and "config.initialData" at the same time', async () => {
+			const consoleWarnStub = sinon.stub( console, 'warn' );
+
+			await new Promise( res => {
+				const data = '<p>Foo</p>';
+
+				wrapper = mount( <CKEditor editor={ Editor } data={ data } config={ { initialData: data } } onReady={ res }/> );
+			} );
+
+			// We must restore "console.warn" before assertions in order to see warnings if they were logged.
+			consoleWarnStub.restore();
+
+			expect( consoleWarnStub.calledOnce ).to.be.true;
+			expect( consoleWarnStub.firstCall.args[ 0 ] ).to.equal(
+				'Editor data should be provided either using `config.initialData` or `data` properties. ' +
+				'The config property is over the data value and the first one will be used when specified both.'
+			);
+		} );
+
+		it( 'uses "config.initialData" over "data" when specified both', async () => {
+			const consoleWarnStub = sinon.stub( console, 'warn' );
+			sinon.stub( Editor, 'create' ).resolves( new Editor() );
+
+			await new Promise( res => {
+				wrapper = mount( <CKEditor editor={ Editor } data="<p>Foo</p>" config={ {
+					initialData: '<p>Bar</p>'
+				} } onReady={ res } /> );
+			} );
+
+			// We must restore "console.warn" before assertions in order to see warnings if they were logged.
+			consoleWarnStub.restore();
+
+			expect( Editor.create.firstCall.args[ 1 ].initialData ).to.equal(
+				'<p>Bar</p>'
+			);
+		} );
+
+		it( 'when setting initial data, it must not use "Editor.setData()"', async () => {
 			const editorInstance = new Editor();
 
-			sandbox.stub( Editor, 'create' ).resolves( editorInstance );
-			sandbox.stub( editorInstance, 'setData' );
+			sinon.stub( Editor, 'create' ).resolves( editorInstance );
+			sinon.stub( editorInstance, 'setData' );
 
-			wrapper = mount( <CKEditor editor={ Editor } data="<p>Hello CKEditor 5!</p>" /> );
-
-			setTimeout( () => {
-				expect( editorInstance.setData.called ).to.be.false;
-
-				done();
+			await new Promise( res => {
+				wrapper = mount( <CKEditor
+					editor={ Editor }
+					data="<p>Hello CKEditor 5!</p>"
+					onReady={ res } /> );
 			} );
+
+			expect( editorInstance.setData.called ).to.be.false;
 		} );
 
-		it( 'must not update the component by React itself', done => {
-			sandbox.stub( Editor, 'create' ).resolves( new Editor() );
+		it( 'must not update the component by React itself', async () => {
+			sinon.stub( Editor, 'create' ).resolves( new Editor() );
 
-			wrapper = mount( <CKEditor editor={ Editor }/> );
-
-			setTimeout( () => {
-				const component = wrapper.instance();
-
-				// This method always is called with an object with component's properties.
-				expect( component.shouldComponentUpdate( {} ) ).to.equal( false );
-
-				done();
+			await new Promise( res => {
+				wrapper = mount( <CKEditor editor={ Editor } onReady={ res } /> );
 			} );
+
+			const component = wrapper.instance();
+
+			// This method always is called with an object with component's properties.
+			expect( component.shouldComponentUpdate( {} ) ).to.equal( false );
 		} );
 
-		it( 'displays an error if something went wrong', done => {
+		it( 'displays an error if something went wrong and "onError" callback was not specified', async () => {
 			const error = new Error( 'Something went wrong.' );
-			const consoleErrorStub = sandbox.stub( console, 'error' );
+			const consoleErrorStub = sinon.stub( console, 'error' ).callsFake( () => { } );
 
-			sandbox.stub( Editor, 'create' ).rejects( error );
+			sinon.stub( Editor, 'create' ).rejects( error );
 
 			wrapper = mount( <CKEditor editor={ Editor } /> );
 
-			setTimeout( () => {
-				// We must restore "console.error" before assertions in order to see errors if something really went wrong.
-				consoleErrorStub.restore();
+			await new Promise( res => setTimeout( res ) );
 
-				expect( consoleErrorStub.calledOnce ).to.be.true;
-				expect( consoleErrorStub.firstCall.args[ 0 ] ).to.equal( error );
+			// We must restore "console.error" before assertions in order to see warnings if they were logged.
+			consoleErrorStub.restore();
 
-				done();
+			expect( consoleErrorStub.calledOnce ).to.be.true;
+			expect( consoleErrorStub.firstCall.args[ 0 ] ).to.equal( error );
+			expect( consoleErrorStub.firstCall.args[ 1 ].phase ).to.equal( 'initialization' );
+			expect( consoleErrorStub.firstCall.args[ 1 ].willEditorRestart ).to.equal( false );
+		} );
+
+		it( 'passes the specified editor class to the watchdog feature', async () => {
+			const EditorWatchdog = CKEditor._EditorWatchdog;
+			const constructorSpy = sinon.spy();
+
+			class CustomEditorWatchdog extends EditorWatchdog {
+				constructor( ...args ) {
+					super( ...args );
+					constructorSpy( ...args );
+				}
+			}
+
+			CKEditor._EditorWatchdog = CustomEditorWatchdog;
+
+			await new Promise( res => {
+				wrapper = mount( <CKEditor editor={ Editor } onReady={ res }/> );
 			} );
+
+			expect( constructorSpy.called ).to.equal( true );
+			expect( constructorSpy.firstCall.args[ 0 ] ).to.equal( Editor );
+
+			CKEditor._EditorWatchdog = EditorWatchdog;
 		} );
 	} );
 
@@ -127,7 +213,7 @@ describe( 'CKEditor Component', () => {
 		it( 'does not update anything if component is not ready', () => {
 			const editorInstance = new Editor();
 
-			sandbox.stub( Editor, 'create' ).resolves( editorInstance );
+			sinon.stub( Editor, 'create' ).resolves( editorInstance );
 
 			wrapper = mount( <CKEditor editor={ Editor } /> );
 
@@ -141,303 +227,441 @@ describe( 'CKEditor Component', () => {
 			expect( shouldComponentUpdate ).to.be.false;
 		} );
 
-		describe( '#onInit', () => {
-			it( 'calls "onInit" callback if specified when the editor is ready to use', done => {
+		describe( '#onReady', () => {
+			it( 'calls "onReady" callback if specified when the editor is ready to use', async () => {
 				const editorInstance = new Editor();
-				const onInit = sandbox.spy();
+				sinon.stub( Editor, 'create' ).resolves( editorInstance );
 
-				sandbox.stub( Editor, 'create' ).resolves( editorInstance );
-
-				wrapper = mount( <CKEditor editor={ Editor } onInit={ onInit } /> );
-
-				setTimeout( () => {
-					expect( onInit.calledOnce ).to.be.true;
-					expect( onInit.firstCall.args[ 0 ] ).to.equal( editorInstance );
-
-					done();
+				const editor = await new Promise( resolve => {
+					wrapper = mount( <CKEditor editor={ Editor } onReady={ resolve } /> );
 				} );
+
+				expect( editor ).to.equal( editorInstance );
 			} );
 		} );
 
 		describe( '#onChange', () => {
-			it( 'listens to the editor\'s changes in order to call "onChange" callback', done => {
+			it( 'executes "onChange" callback if it was specified and the editor\'s data has changed', async () => {
+				const onChange = sinon.spy();
 				const editorInstance = new Editor();
 				const modelDocument = Editor._model.document;
 
-				sandbox.stub( Editor, 'create' ).resolves( editorInstance );
-				sandbox.stub( editorInstance, 'getData' ).returns( '<p>Foo.</p>' );
+				sinon.stub( Editor, 'create' ).resolves( editorInstance );
 
-				wrapper = mount( <CKEditor editor={ Editor } /> );
-
-				setTimeout( () => {
-
-					expect( modelDocument.on.calledOnce ).to.be.true;
-					expect( modelDocument.on.firstCall.args[ 0 ] ).to.equal( 'change:data' );
-					expect( modelDocument.on.firstCall.args[ 1 ] ).to.be.a( 'function' );
-
-					done();
+				await new Promise( ( res, rej ) => {
+					wrapper = mount( <CKEditor
+						editor={ Editor }
+						onChange={ onChange }
+						onReady={ res }
+						onError={ rej } /> );
 				} );
+
+				const fireChanges = modelDocument.on.firstCall.args[ 1 ];
+				const event = { name: 'change:data' };
+
+				fireChanges( event );
+
+				expect( onChange.calledOnce ).to.equal( true );
+				expect( onChange.firstCall.args[ 0 ] ).to.equal( event );
+				expect( onChange.firstCall.args[ 1 ] ).to.equal( editorInstance );
 			} );
 
-			it( 'executes "onChange" callback if it was specified and the editor\'s data has changed', done => {
-				const onChange = sandbox.spy();
+			it( 'executes "onChange" callback if it is available in runtime when the editor\'s data has changed', async () => {
+				const onChange = sinon.spy();
 				const editorInstance = new Editor();
 				const modelDocument = Editor._model.document;
 
-				sandbox.stub( Editor, 'create' ).resolves( editorInstance );
+				sinon.stub( Editor, 'create' ).resolves( editorInstance );
 
-				wrapper = mount( <CKEditor editor={ Editor } onChange={ onChange } /> );
-
-				setTimeout( () => {
-					const fireChanges = modelDocument.on.firstCall.args[ 1 ];
-					const event = { name: 'change:data' };
-
-					fireChanges( event );
-
-					expect( onChange.calledOnce ).to.equal( true );
-					expect( onChange.firstCall.args[ 0 ] ).to.equal( event );
-					expect( onChange.firstCall.args[ 1 ] ).to.equal( editorInstance );
-
-					done();
+				await new Promise( ( res, rej ) => {
+					wrapper = mount( <CKEditor
+						editor={ Editor }
+						onReady={ res }
+						onError={ rej } /> );
 				} );
-			} );
 
-			it( 'executes "onChange" callback if it is available in runtime when the editor\'s data has changed', done => {
-				const onChange = sandbox.spy();
-				const editorInstance = new Editor();
-				const modelDocument = Editor._model.document;
+				wrapper.setProps( { onChange } );
 
-				sandbox.stub( Editor, 'create' ).resolves( editorInstance );
+				const fireChanges = modelDocument.on.firstCall.args[ 1 ];
+				const event = { name: 'change:data' };
 
-				wrapper = mount( <CKEditor editor={ Editor } /> );
+				fireChanges( event );
 
-				setTimeout( () => {
-					wrapper.setProps( { onChange } );
-
-					const fireChanges = modelDocument.on.firstCall.args[ 1 ];
-					const event = { name: 'change:data' };
-
-					fireChanges( event );
-
-					expect( onChange.calledOnce ).to.equal( true );
-					expect( onChange.firstCall.args[ 0 ] ).to.equal( event );
-					expect( onChange.firstCall.args[ 1 ] ).to.equal( editorInstance );
-
-					done();
-				} );
+				expect( onChange.calledOnce ).to.equal( true );
+				expect( onChange.firstCall.args[ 0 ] ).to.equal( event );
+				expect( onChange.firstCall.args[ 1 ] ).to.equal( editorInstance );
 			} );
 		} );
 
 		describe( '#onFocus', () => {
-			it( 'listens to the "viewDocument#focus" event in order to call "onFocus" callback', done => {
+			it( 'listens to the "viewDocument#focus" event in order to call "onFocus" callback', async () => {
 				const editorInstance = new Editor();
 				const viewDocument = Editor._editing.view.document;
 
-				sandbox.stub( Editor, 'create' ).resolves( editorInstance );
-				sandbox.stub( editorInstance, 'getData' ).returns( '<p>Foo.</p>' );
+				sinon.stub( Editor, 'create' ).resolves( editorInstance );
+				sinon.stub( editorInstance, 'getData' ).returns( '<p>Foo.</p>' );
 
-				wrapper = mount( <CKEditor editor={ Editor } /> );
-
-				setTimeout( () => {
-					// More events are being attached to `viewDocument`.
-					expect( viewDocument.on.calledTwice ).to.be.true;
-					expect( viewDocument.on.firstCall.args[ 0 ] ).to.equal( 'focus' );
-					expect( viewDocument.on.firstCall.args[ 1 ] ).to.be.a( 'function' );
-
-					done();
+				await new Promise( res => {
+					wrapper = mount( <CKEditor editor={ Editor } onReady={ res }/> );
 				} );
+
+				// More events are being attached to `viewDocument`.
+				expect( viewDocument.on.calledTwice ).to.be.true;
+				expect( viewDocument.on.firstCall.args[ 0 ] ).to.equal( 'focus' );
+				expect( viewDocument.on.firstCall.args[ 1 ] ).to.be.a( 'function' );
 			} );
 
-			it( 'executes "onFocus" callback if it was specified and the editor was focused', done => {
-				const onFocus = sandbox.spy();
+			it( 'executes "onFocus" callback if it was specified and the editor was focused', async () => {
+				const onFocus = sinon.spy();
 				const editorInstance = new Editor();
 				const viewDocument = Editor._editing.view.document;
 
-				sandbox.stub( Editor, 'create' ).resolves( editorInstance );
+				sinon.stub( Editor, 'create' ).resolves( editorInstance );
 
-				wrapper = mount( <CKEditor editor={ Editor } onFocus={ onFocus } /> );
-
-				setTimeout( () => {
-					const fireChanges = viewDocument.on.firstCall.args[ 1 ];
-					const event = { name: 'focus' };
-
-					fireChanges( event );
-
-					expect( onFocus.calledOnce ).to.equal( true );
-					expect( onFocus.firstCall.args[ 0 ] ).to.equal( event );
-					expect( onFocus.firstCall.args[ 1 ] ).to.equal( editorInstance );
-
-					done();
+				await new Promise( res => {
+					wrapper = mount( <CKEditor editor={ Editor } onFocus={ onFocus } onReady={ res }/> );
 				} );
+
+				const fireChanges = viewDocument.on.firstCall.args[ 1 ];
+				const event = { name: 'focus' };
+
+				fireChanges( event );
+
+				expect( onFocus.calledOnce ).to.equal( true );
+				expect( onFocus.firstCall.args[ 0 ] ).to.equal( event );
+				expect( onFocus.firstCall.args[ 1 ] ).to.equal( editorInstance );
 			} );
 
-			it( 'executes "onFocus" callback if it is available in runtime when the editor was focused', done => {
-				const onFocus = sandbox.spy();
+			it( 'executes "onFocus" callback if it is available in runtime when the editor was focused', async () => {
+				const onFocus = sinon.spy();
 				const editorInstance = new Editor();
 				const viewDocument = Editor._editing.view.document;
 
-				sandbox.stub( Editor, 'create' ).resolves( editorInstance );
+				sinon.stub( Editor, 'create' ).resolves( editorInstance );
 
-				wrapper = mount( <CKEditor editor={ Editor } /> );
-
-				setTimeout( () => {
-					wrapper.setProps( { onFocus } );
-
-					const fireChanges = viewDocument.on.firstCall.args[ 1 ];
-					const event = { name: 'focus' };
-
-					fireChanges( event );
-
-					expect( onFocus.calledOnce ).to.equal( true );
-					expect( onFocus.firstCall.args[ 0 ] ).to.equal( event );
-					expect( onFocus.firstCall.args[ 1 ] ).to.equal( editorInstance );
-
-					done();
+				await new Promise( res => {
+					wrapper = mount( <CKEditor editor={ Editor } onReady={ res }/> );
 				} );
+
+				wrapper.setProps( { onFocus } );
+
+				const fireChanges = viewDocument.on.firstCall.args[ 1 ];
+				const event = { name: 'focus' };
+
+				fireChanges( event );
+
+				expect( onFocus.calledOnce ).to.equal( true );
+				expect( onFocus.firstCall.args[ 0 ] ).to.equal( event );
+				expect( onFocus.firstCall.args[ 1 ] ).to.equal( editorInstance );
 			} );
 		} );
 
 		describe( '#onBlur', () => {
-			it( 'listens to the "viewDocument#blur" event in order to call "onBlur" callback', done => {
+			it( 'listens to the "viewDocument#blur" event in order to call "onBlur" callback', async () => {
 				const editorInstance = new Editor();
 				const viewDocument = Editor._editing.view.document;
 
-				sandbox.stub( Editor, 'create' ).resolves( editorInstance );
-				sandbox.stub( editorInstance, 'getData' ).returns( '<p>Foo.</p>' );
+				sinon.stub( Editor, 'create' ).resolves( editorInstance );
+				sinon.stub( editorInstance, 'getData' ).returns( '<p>Foo.</p>' );
 
-				wrapper = mount( <CKEditor editor={ Editor } /> );
-
-				setTimeout( () => {
-					// More events are being attached to `viewDocument`.
-					expect( viewDocument.on.calledTwice ).to.be.true;
-					expect( viewDocument.on.secondCall.args[ 0 ] ).to.equal( 'blur' );
-					expect( viewDocument.on.secondCall.args[ 1 ] ).to.be.a( 'function' );
-
-					done();
+				await new Promise( res => {
+					wrapper = mount( <CKEditor editor={ Editor } onReady={ res } /> );
 				} );
+
+				// More events are being attached to `viewDocument`.
+				expect( viewDocument.on.calledTwice ).to.be.true;
+				expect( viewDocument.on.secondCall.args[ 0 ] ).to.equal( 'blur' );
+				expect( viewDocument.on.secondCall.args[ 1 ] ).to.be.a( 'function' );
 			} );
 
-			it( 'executes "onBlur" callback if it was specified and the editor was blurred', done => {
-				const onBlur = sandbox.spy();
+			it( 'executes "onBlur" callback if it was specified and the editor was blurred', async () => {
+				const onBlur = sinon.spy();
 				const editorInstance = new Editor();
 				const viewDocument = Editor._editing.view.document;
 
-				sandbox.stub( Editor, 'create' ).resolves( editorInstance );
+				sinon.stub( Editor, 'create' ).resolves( editorInstance );
 
-				wrapper = mount( <CKEditor editor={ Editor } onBlur={ onBlur } /> );
-
-				setTimeout( () => {
-					const fireChanges = viewDocument.on.secondCall.args[ 1 ];
-					const event = { name: 'blur' };
-
-					fireChanges( event );
-
-					expect( onBlur.calledOnce ).to.equal( true );
-					expect( onBlur.firstCall.args[ 0 ] ).to.equal( event );
-					expect( onBlur.firstCall.args[ 1 ] ).to.equal( editorInstance );
-
-					done();
+				await new Promise( res => {
+					wrapper = mount( <CKEditor editor={ Editor } onBlur={ onBlur } onReady={ res }/> );
 				} );
+
+				const fireChanges = viewDocument.on.secondCall.args[ 1 ];
+				const event = { name: 'blur' };
+
+				fireChanges( event );
+
+				expect( onBlur.calledOnce ).to.equal( true );
+				expect( onBlur.firstCall.args[ 0 ] ).to.equal( event );
+				expect( onBlur.firstCall.args[ 1 ] ).to.equal( editorInstance );
 			} );
 
-			it( 'executes "onBlur" callback if it is available in runtime when the editor was blurred', done => {
-				const onBlur = sandbox.spy();
+			it( 'executes "onBlur" callback if it is available in runtime when the editor was blurred', async () => {
+				const onBlur = sinon.spy();
 				const editorInstance = new Editor();
 				const viewDocument = Editor._editing.view.document;
 
-				sandbox.stub( Editor, 'create' ).resolves( editorInstance );
+				sinon.stub( Editor, 'create' ).resolves( editorInstance );
 
-				wrapper = mount( <CKEditor editor={ Editor } /> );
-
-				setTimeout( () => {
-					wrapper.setProps( { onBlur } );
-
-					const fireChanges = viewDocument.on.secondCall.args[ 1 ];
-					const event = { name: 'blur' };
-
-					fireChanges( event );
-
-					expect( onBlur.calledOnce ).to.equal( true );
-					expect( onBlur.firstCall.args[ 0 ] ).to.equal( event );
-					expect( onBlur.firstCall.args[ 1 ] ).to.equal( editorInstance );
-
-					done();
+				await new Promise( res => {
+					wrapper = mount( <CKEditor editor={ Editor } onReady={ res }/> );
 				} );
+
+				wrapper.setProps( { onBlur } );
+
+				const fireChanges = viewDocument.on.secondCall.args[ 1 ];
+				const event = { name: 'blur' };
+
+				fireChanges( event );
+
+				expect( onBlur.calledOnce ).to.equal( true );
+				expect( onBlur.firstCall.args[ 0 ] ).to.equal( event );
+				expect( onBlur.firstCall.args[ 1 ] ).to.equal( editorInstance );
+			} );
+		} );
+
+		describe( '#onError', () => {
+			it( 'calls the callback if specified when an error occurs', async () => {
+				const originalError = new Error( 'Error was thrown.' );
+
+				sinon.stub( Editor, 'create' ).rejects( originalError );
+
+				const { error, details } = await new Promise( res => {
+					wrapper = mount( <CKEditor editor={ Editor } onError={ ( error, details ) => res( { error, details } ) } /> );
+				} );
+
+				expect( error ).to.equal( error );
+				expect( details.phase ).to.equal( 'initialization' );
+				expect( details.willEditorRestart ).to.equal( false );
+			} );
+
+			it( 'calls the callback if the runtime error occurs', async () => {
+				await new Promise( ( res, rej ) => {
+					wrapper = mount( <CKEditor
+						editor={ Editor }
+						onReady={ res }
+						onError={ rej } /> );
+				} );
+
+				const error = new CKEditorError( 'foo', wrapper.instance().editor );
+
+				const onErrorSpy = sinon.spy();
+				wrapper.setProps( { onError: onErrorSpy } );
+
+				await turnOffDefaultErrorCatching( () => {
+					return new Promise( res => {
+						wrapper.setProps( { onReady: res } );
+
+						setTimeout( () => {
+							throw error;
+						} );
+					} );
+				} );
+
+				sinon.assert.calledOnce( onErrorSpy );
+
+				expect( onErrorSpy.firstCall.args[ 0 ] ).to.equal( error );
+				expect( onErrorSpy.firstCall.args[ 1 ].phase ).to.equal( 'runtime' );
+				expect( onErrorSpy.firstCall.args[ 1 ].willEditorRestart ).to.equal( true );
 			} );
 		} );
 
 		describe( '#disabled', () => {
 			it( 'switches the editor to read-only mode if [disabled={true}]', done => {
-				const onInit = function( editor ) {
+				const onReady = function( editor ) {
 					expect( editor.isReadOnly ).to.be.true;
 
 					done();
 				};
 
-				wrapper = mount( <CKEditor editor={ Editor } disabled={ true } onInit={ onInit } /> );
+				wrapper = mount( <CKEditor editor={ Editor } disabled={ true } onReady={ onReady } /> );
 			} );
 
-			it( 'switches the editor to read-only mode when [disabled={true}] property was set in runtime', done => {
-				let editor;
+			it( 'switches the editor to read-only mode when [disabled={true}] property was set in runtime', async () => {
+				await new Promise( ( res, rej ) => {
+					wrapper = mount( <CKEditor
+						editor={ Editor }
+						onReady={ res }
+						onError={ rej } /> );
+				} );
 
-				const onInit = function( _editor ) {
-					editor = _editor;
-				};
+				wrapper.setProps( { disabled: true } );
+
+				expect( wrapper.instance().editor.isReadOnly ).to.be.true;
+			} );
+		} );
+
+		describe( '#id', () => {
+			it( 'should re-mount the editor if the attribute has changed', async () => {
+				sinon.stub( Editor, 'create' ).callsFake( async () => new Editor() );
+
+				const editor = await new Promise( ( res, rej ) => {
+					wrapper = mount( <CKEditor
+						editor={ Editor }
+						onReady={ res }
+						onError={ rej }
+						config={ { initialData: '<p>foo</p>' } }
+						id="1"
+					/> );
+				} );
+
+				sinon.assert.calledOnce( Editor.create );
+				expect( Editor.create.firstCall.args[ 1 ].initialData ).to.equal( '<p>foo</p>' );
+
+				const editor2 = await new Promise( res => {
+					wrapper.setProps( { onReady: res, id: '2', config: { initialData: '<p>bar</p>' } } );
+				} );
+
+				sinon.assert.calledTwice( Editor.create );
+
+				expect( Editor.create.secondCall.args[ 1 ].initialData ).to.equal( '<p>bar</p>' );
+
+				expect( editor ).to.not.equal( editor2 );
+			} );
+
+			it( 'should not re-mount the editor if the attribute has not changed', async () => {
+				await new Promise( ( res, rej ) => {
+					wrapper = mount( <CKEditor
+						editor={ Editor }
+						onReady={ res }
+						onError={ rej }
+						config={ { initialData: '<p>foo</p>' } }
+						id="1"
+					/> );
+				} );
+
+				sinon.stub( Editor, 'create' ).callsFake( async () => new Editor() );
+
+				wrapper.setProps( { id: '1', config: { initialData: '<p>bar</p>' } } );
+
+				await new Promise( res => setTimeout( res ) );
+
+				sinon.assert.notCalled( Editor.create );
+			} );
+
+			it( 'should destroy the old watchdog instance while re-mounting the editor', async () => {
+				await new Promise( ( res, rej ) => {
+					wrapper = mount( <CKEditor
+						editor={ Editor }
+						onReady={ res }
+						onError={ rej }
+						config={ { initialData: '<p>foo</p>' } }
+						id="1"
+					/> );
+				} );
+
+				const { watchdog: firstWatchdog } = wrapper.instance();
+
+				await new Promise( res => {
+					wrapper.setProps( { onReady: res, id: '2', config: { initialData: '<p>bar</p>' } } );
+				} );
+
+				const { watchdog: secondWatchdog } = wrapper.instance();
+
+				expect( firstWatchdog ).to.not.equal( secondWatchdog );
+				expect( firstWatchdog.state ).to.equal( 'destroyed' );
+				expect( secondWatchdog.state ).to.equal( 'ready' );
+			} );
+		} );
+
+		describe( '#onInit', () => {
+			it( 'should throw an error when using the unsupported property', async () => {
+				const consoleErrorStub = sinon.stub( console, 'error' );
+				const onInit = sinon.spy();
 
 				wrapper = mount( <CKEditor editor={ Editor } onInit={ onInit } /> );
 
-				setTimeout( () => {
-					wrapper.setProps( { disabled: true } );
+				consoleErrorStub.restore();
 
-					expect( editor.isReadOnly ).to.be.true;
-
-					done();
-				} );
+				expect( onInit.called ).to.equal( false );
+				expect( consoleErrorStub.calledOnce ).to.equal( true );
+				expect( consoleErrorStub.firstCall.args[ 0 ] ).to.match(
+					/The "onInit" property is not supported anymore by the CKEditor component\. Use the "onReady" property instead./
+				);
 			} );
 		} );
 	} );
 
 	describe( 'destroy', () => {
-		it( 'calls "Editor#destroy()" method during unmounting the component', done => {
+		it( 'calls "Editor#destroy()" method during unmounting the component', async () => {
 			const editorInstance = new Editor();
 
-			sandbox.stub( Editor, 'create' ).resolves( editorInstance );
-			sandbox.stub( editorInstance, 'destroy' ).resolves();
+			sinon.stub( Editor, 'create' ).resolves( editorInstance );
 
-			wrapper = mount( <CKEditor editor={ Editor } /> );
-
-			setTimeout( () => {
-				wrapper.unmount();
-				wrapper = null;
-
-				expect( editorInstance.destroy.calledOnce ).to.be.true;
-
-				done();
+			await new Promise( ( res, rej ) => {
+				wrapper = mount( <CKEditor
+					editor={ Editor }
+					onReady={ res }
+					onError={ rej } /> );
 			} );
+
+			await new Promise( res => {
+				sinon.stub( editorInstance, 'destroy' ).callsFake( () => {
+					res();
+
+					return Promise.resolve();
+				} );
+
+				wrapper.unmount();
+			} );
+
+			wrapper = null;
+
+			expect( editorInstance.destroy.calledOnce ).to.be.true;
 		} );
 
-		it( 'should set to "null" the "editor" property inside the component', done => {
+		it( 'should set to "null" the "editor" property inside the component', async () => {
 			const editorInstance = new Editor();
 
-			sandbox.stub( Editor, 'create' ).resolves( editorInstance );
-			sandbox.stub( editorInstance, 'destroy' ).resolves();
+			sinon.stub( Editor, 'create' ).resolves( editorInstance );
 
-			wrapper = mount( <CKEditor editor={ Editor } /> );
+			await new Promise( ( res, rej ) => {
+				wrapper = mount( <CKEditor
+					editor={ Editor }
+					onReady={ res }
+					onError={ rej } /> );
+			} );
 
-			setTimeout( () => {
-				const component = wrapper.instance();
+			const component = wrapper.instance();
 
-				expect( component.editor ).is.not.null;
+			expect( component.editor ).is.not.null;
 
-				wrapper.unmount();
-				wrapper = null;
+			wrapper.unmount();
+			wrapper = null;
 
-				setTimeout( () => {
-					expect( component.editor ).is.null;
+			// Wait a cycle.
+			await new Promise( res => setTimeout( res ) );
 
-					done();
+			expect( component.editor ).is.null;
+		} );
+	} );
+
+	describe( 'in case of error handling', () => {
+		it( 'should restart the editor if a runtime error occurs', async () => {
+			await new Promise( ( res, rej ) => {
+				wrapper = mount( <CKEditor
+					editor={ Editor }
+					onReady={ res }
+					onError={ rej } /> );
+			} );
+
+			const firstEditor = wrapper.instance().editor;
+
+			await turnOffDefaultErrorCatching( () => {
+				return new Promise( res => {
+					wrapper.setProps( { onReady: res } );
+
+					setTimeout( () => {
+						throw new CKEditorError( 'foo', firstEditor );
+					} );
 				} );
 			} );
+
+			const secondEditor = wrapper.instance().editor;
+
+			expect( firstEditor ).to.be.instanceOf( Editor );
+			expect( secondEditor ).to.be.instanceOf( Editor );
+
+			expect( firstEditor ).to.not.equal( secondEditor );
 		} );
 	} );
 } );
